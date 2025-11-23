@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "ts-node src/app.ts"
+    "start": "NODE_TLS_REJECT_UNAUTHORIZED=0 ts-node src/app.ts"
   },
   "repository": {
     "type": "git",
@@ -19,7 +19,8 @@
   },
   "homepage": "https://github.com/bruderj15/langgraph-example-typescript#readme",
   "dependencies": {
-    "@langchain/langgraph": "^1.0.2"
+    "@langchain/langgraph": "^1.0.2",
+    "undici": "^7.16.0"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
