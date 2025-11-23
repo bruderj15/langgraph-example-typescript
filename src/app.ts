@@ -7,7 +7,7 @@ const rl = readline.createInterface({ input, output });
 const AgentState = Annotation.Root({
   user_name: Annotation<string | undefined>(),
   current_pizza_name: Annotation<string | undefined>(),
-  pizzas: Annotation<PizzaData[] | undefined>(),
+  pizzas: Annotation<PizzaData[]>(),
   output: Annotation<string[]>(),
 });
 
@@ -33,7 +33,7 @@ interface PizzaData {
   id: number;
   name: String;
 }
-async function shouldAskPizzaName(state: typeof AgentState.State) {
+async function shouldValidatePizza(state: typeof AgentState.State) {
   const getPizzasRes = await fetch(
     "https://demos.swe.htwk-leipzig.de/pizza-api/pizza",
   );
@@ -45,16 +45,19 @@ async function shouldAskPizzaName(state: typeof AgentState.State) {
   if (!state.current_pizza_name) {
     return ASK_PIZZA_NAME_NODE;
   } else {
-    let valid_pizza_names = valid_pizzas.map((pizza) => pizza.name);
-    let is_valid = valid_pizza_names.some(
-      (pizza_name) => pizza_name == state.current_pizza_name,
+    let valid_pizza = valid_pizzas.find(
+      (pizza) => pizza.name == state.current_pizza_name,
     );
-    if (is_valid) {
-      return END;
+    if (valid_pizza) {
+      state.pizzas.push(valid_pizza);
+      state.current_pizza_name = undefined;
+      return ASK_PIZZA_AMOUNT_NODE;
     } else {
+      let valid_pizza_names = valid_pizzas.map((pizza) => pizza.name);
       console.info(
         `Pizza '${state.current_pizza_name}' is invalid. Try any of: '${valid_pizza_names}'`,
       );
+      state.current_pizza_name = undefined;
       return ASK_PIZZA_NAME_NODE;
     }
   }
@@ -70,7 +73,7 @@ async function askPizzaName(state: typeof AgentState.State) {
   return state;
 }
 
-const VALIDATE_PIZZA_NAME_NODE = "validate_pizza_name";
+const ASK_PIZZA_AMOUNT_NODE = "ask_pizza_amount";
 async function validatePizzaName(state: typeof AgentState.State) {
   return state;
 }
@@ -79,17 +82,17 @@ const graph = new StateGraph(AgentState)
   .addNode(ASK_USER_NAME_NODE, askUserName)
   .addNode(GREETING_NODE, greetingNode)
   .addNode(ASK_PIZZA_NAME_NODE, askPizzaName)
-  .addNode(VALIDATE_PIZZA_NAME_NODE, validatePizzaName)
+  .addNode(ASK_PIZZA_AMOUNT_NODE, validatePizzaName)
   .addConditionalEdges(START, shouldAskUserName)
   .addEdge(ASK_USER_NAME_NODE, GREETING_NODE)
   .addEdge(GREETING_NODE, ASK_PIZZA_NAME_NODE)
-  .addConditionalEdges(ASK_PIZZA_NAME_NODE, shouldAskPizzaName)
-  .addEdge(VALIDATE_PIZZA_NAME_NODE, END);
+  .addConditionalEdges(ASK_PIZZA_NAME_NODE, shouldValidatePizza)
+  .addEdge(ASK_PIZZA_AMOUNT_NODE, END);
 
 const app = graph.compile();
 
 (async () => {
-  const result = await app.invoke({ output: [] });
+  const result = await app.invoke({ output: [], pizzas: [] });
   console.log("Final:", result);
   rl.close();
   process.exit(0);
