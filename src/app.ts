@@ -28,7 +28,9 @@ function shouldAskUserName(state: typeof AgentState.State) {
 
 const GREETING_NODE = "greeting";
 async function greetingNode(state: typeof AgentState.State) {
-  state.output.push(`Hello, ${state.user_name}!`);
+  let msg = `Hello, ${state.user_name}!`;
+  console.info(msg);
+  state.output.push(msg);
   return state;
 }
 
@@ -55,9 +57,9 @@ async function shouldValidatePizza(state: typeof AgentState.State) {
       return ASK_PIZZA_AMOUNT_NODE;
     } else {
       let valid_pizza_names = valid_pizzas.map((pizza) => pizza.name);
-      console.info(
-        `Pizza '${state.current_pizza_name}' is invalid. Try any of: '${valid_pizza_names}'`,
-      );
+      let msg = `Pizza '${state.current_pizza_name}' is invalid. Try any of: '${valid_pizza_names}'`;
+      console.info(msg);
+      state.output.push(msg);
       return ASK_PIZZA_NAME_NODE;
     }
   }
@@ -83,6 +85,22 @@ async function askPizzaAmount(state: typeof AgentState.State) {
   return state;
 }
 
+async function shouldAskForMorePizza(state: typeof AgentState.State) {
+  const answer = await rl.question(
+    `ChatBot: Do you want any other Pizzas as well? (y/n)\n`,
+  );
+  console.info("Received:", answer);
+
+  if (answer == "y") {
+    return ASK_PIZZA_NAME_NODE;
+  } else if (answer == "n") {
+    return END;
+  } else {
+    console.info(`Answer '${answer}' is invalid. Try any of: 'y,n'`);
+    return shouldAskForMorePizza(state);
+  }
+}
+
 const graph = new StateGraph(AgentState)
   .addNode(ASK_USER_NAME_NODE, askUserName)
   .addNode(GREETING_NODE, greetingNode)
@@ -92,7 +110,7 @@ const graph = new StateGraph(AgentState)
   .addEdge(ASK_USER_NAME_NODE, GREETING_NODE)
   .addEdge(GREETING_NODE, ASK_PIZZA_NAME_NODE)
   .addConditionalEdges(ASK_PIZZA_NAME_NODE, shouldValidatePizza)
-  .addEdge(ASK_PIZZA_AMOUNT_NODE, END);
+  .addConditionalEdges(ASK_PIZZA_AMOUNT_NODE, shouldAskForMorePizza);
 
 const app = graph.compile();
 
