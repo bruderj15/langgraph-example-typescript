@@ -4,10 +4,13 @@ import { stdin as input, stdout as output } from "node:process";
 
 const rl = readline.createInterface({ input, output });
 
+type PizzaId = number;
+type PizzaName = string;
+type PizzaAmount = number;
 const AgentState = Annotation.Root({
   user_name: Annotation<string | undefined>(),
-  current_pizza_name: Annotation<string | undefined>(),
-  pizzas: Annotation<PizzaData[]>(),
+  current_pizza_name: Annotation<PizzaName | undefined>(),
+  pizzas: Annotation<Map<PizzaName, PizzaAmount>>(),
   output: Annotation<string[]>(),
 });
 
@@ -49,15 +52,12 @@ async function shouldValidatePizza(state: typeof AgentState.State) {
       (pizza) => pizza.name == state.current_pizza_name,
     );
     if (valid_pizza) {
-      state.pizzas.push(valid_pizza);
-      state.current_pizza_name = undefined;
       return ASK_PIZZA_AMOUNT_NODE;
     } else {
       let valid_pizza_names = valid_pizzas.map((pizza) => pizza.name);
       console.info(
         `Pizza '${state.current_pizza_name}' is invalid. Try any of: '${valid_pizza_names}'`,
       );
-      state.current_pizza_name = undefined;
       return ASK_PIZZA_NAME_NODE;
     }
   }
@@ -74,7 +74,12 @@ async function askPizzaName(state: typeof AgentState.State) {
 }
 
 const ASK_PIZZA_AMOUNT_NODE = "ask_pizza_amount";
-async function validatePizzaName(state: typeof AgentState.State) {
+async function askPizzaAmount(state: typeof AgentState.State) {
+  const amount = await rl.question(
+    `ChatBot: How many Pizza '${state.current_pizza_name}' do you want to order?\n`,
+  );
+  console.info("Received:", amount);
+  state.pizzas.set(state.current_pizza_name!, Number.parseInt(amount));
   return state;
 }
 
@@ -82,7 +87,7 @@ const graph = new StateGraph(AgentState)
   .addNode(ASK_USER_NAME_NODE, askUserName)
   .addNode(GREETING_NODE, greetingNode)
   .addNode(ASK_PIZZA_NAME_NODE, askPizzaName)
-  .addNode(ASK_PIZZA_AMOUNT_NODE, validatePizzaName)
+  .addNode(ASK_PIZZA_AMOUNT_NODE, askPizzaAmount)
   .addConditionalEdges(START, shouldAskUserName)
   .addEdge(ASK_USER_NAME_NODE, GREETING_NODE)
   .addEdge(GREETING_NODE, ASK_PIZZA_NAME_NODE)
@@ -92,7 +97,10 @@ const graph = new StateGraph(AgentState)
 const app = graph.compile();
 
 (async () => {
-  const result = await app.invoke({ output: [], pizzas: [] });
+  const result = await app.invoke({
+    output: [],
+    pizzas: new Map<PizzaId, PizzaAmount>(),
+  });
   console.log("Final:", result);
   rl.close();
   process.exit(0);
